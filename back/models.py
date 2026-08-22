@@ -33,3 +33,12 @@ class Canje(Base):
     cliente_id = Column(UUID(as_uuid=True), ForeignKey("clientes.id"))
     premio_id = Column(Integer, ForeignKey("premios.id"))
     fecha = Column(DateTime, server_default=func.now())
+
+class Suscripcion(Base):
+    __tablename__ = "suscripciones"
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(UUID(as_uuid=True), ForeignKey("clientes.id"))
+    endpoint = Column(String(500), unique=True, nullable=False)
+    p256dh = Column(String(200), nullable=False)
+    auth = Column(String(100), nullable=False)
+    fecha_creacion = Column(DateTime, server_default=func.now())

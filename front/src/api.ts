@@ -73,3 +73,18 @@ export function canjearPremio(codigoQr: string): Promise<{ mensaje: string; clie
     method: 'POST',
   }).then((res) => handle(res))
 }
+
+export function obtenerClavePublicaPush(): Promise<{ clave: string }> {
+  return fetch(`${API_BASE_URL}/push/clave-publica`).then((res) => handle(res))
+}
+
+export function suscribirsePush(
+  codigoQr: string,
+  suscripcion: { endpoint: string; p256dh: string; auth: string },
+): Promise<{ mensaje: string }> {
+  return fetch(`${API_BASE_URL}/push/suscribirse/${encodeURIComponent(codigoQr)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(suscripcion),
+  }).then((res) => handle(res))
+}

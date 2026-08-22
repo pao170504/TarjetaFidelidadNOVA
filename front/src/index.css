@@ -259,6 +259,16 @@ input {
   gap: 34px;
 }
 
+.client-notify-btn {
+  width: 100%;
+}
+
+.client-notify-ok {
+  text-align: center;
+  font-size: 13px;
+  color: var(--nova-gold-soft);
+}
+
 .client-footer {
   text-align: center;
   font-size: 11.5px;

@@ -3,12 +3,15 @@ import { useParams } from 'react-router-dom'
 import { obtenerProgreso, type ClienteProgreso } from '../api'
 import { NovaCard } from '../components/NovaCard'
 import { NovaHistory } from '../components/NovaHistory'
+import { activarNotificaciones, pushSoportado } from '../push'
+import { personalizarManifestParaCliente } from '../manifest'
 
 export function ClientCardPage() {
   const { codigoQr } = useParams<{ codigoQr: string }>()
   const [progreso, setProgreso] = useState<ClienteProgreso | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [estadoAviso, setEstadoAviso] = useState<'inactivo' | 'activando' | 'activo' | 'error'>('inactivo')
 
   useEffect(() => {
     if (!codigoQr) return
@@ -22,6 +25,27 @@ export function ClientCardPage() {
         setCargando(false)
       })
   }, [codigoQr])
+
+  useEffect(() => {
+    if (pushSoportado() && Notification.permission === 'granted') {
+      setEstadoAviso('activo')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (codigoQr) personalizarManifestParaCliente(codigoQr)
+  }, [codigoQr])
+
+  async function handleActivarAvisos() {
+    if (!codigoQr) return
+    setEstadoAviso('activando')
+    try {
+      await activarNotificaciones(codigoQr)
+      setEstadoAviso('activo')
+    } catch {
+      setEstadoAviso('error')
+    }
+  }
 
   if (cargando) {
     return <div className="client-state">Cargando tu tarjeta…</div>
@@ -45,6 +69,24 @@ export function ClientCardPage() {
 
         <NovaCard progreso={progreso} />
         <NovaHistory historial={progreso.historial} />
+
+        {pushSoportado() && estadoAviso !== 'activo' && (
+          <button
+            className="btn-dark client-notify-btn"
+            onClick={handleActivarAvisos}
+            disabled={estadoAviso === 'activando'}
+          >
+            {estadoAviso === 'activando' ? 'Activando…' : 'Avisame cuando pueda reclamar mi premio'}
+          </button>
+        )}
+        {estadoAviso === 'activo' && (
+          <div className="client-notify-ok">Te vamos a avisar acá cuando puedas reclamar tu premio</div>
+        )}
+        {estadoAviso === 'error' && (
+          <div className="admin-error" style={{ textAlign: 'center' }}>
+            No pudimos activar los avisos. Revisá los permisos de notificaciones del navegador.
+          </div>
+        )}
 
         <div className="client-footer">
           Presenta este código en tu próxima visita

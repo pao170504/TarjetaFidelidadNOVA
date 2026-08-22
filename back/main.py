@@ -2,12 +2,16 @@ import os
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import secrets
 
 from database import get_db, engine, Base
 import models
+from push import notificar_cliente
+
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 
 Base.metadata.create_all(bind=engine)  # crea tablas si no existen (no rompe las que ya están)
 
@@ -76,7 +80,56 @@ def sumar_sello(codigo_qr: str, servicio: str = "", db: Session = Depends(get_db
     nuevo_sello = models.Sello(cliente_id=cliente.id, servicio=servicio)
     db.add(nuevo_sello)
     db.commit()
+
+    premio = db.query(models.Premio).filter(models.Premio.activo == True).first()
+    if premio:
+        sellos_activos = db.query(models.Sello).filter(
+            models.Sello.cliente_id == cliente.id,
+            models.Sello.canjeado == False
+        ).count()
+        if sellos_activos == premio.sellos_requeridos:
+            notificar_cliente(
+                db, cliente.id,
+                titulo="¡Ya podés reclamar tu premio! 🎉",
+                cuerpo=premio.descripcion,
+                url=f"/c/{codigo_qr}",
+            )
+
     return {"mensaje": "Sello agregado", "cliente": cliente.nombre}
+
+# --- Clave pública VAPID (la usa el front para suscribirse) ---
+@app.get("/push/clave-publica")
+def clave_publica():
+    return {"clave": VAPID_PUBLIC_KEY}
+
+class SuscripcionIn(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+
+# --- Guardar suscripción push de una clienta ---
+@app.post("/push/suscribirse/{codigo_qr}")
+def suscribirse(codigo_qr: str, datos: SuscripcionIn, db: Session = Depends(get_db)):
+    cliente = db.query(models.Cliente).filter(models.Cliente.codigo_qr == codigo_qr).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    existente = db.query(models.Suscripcion).filter(
+        models.Suscripcion.endpoint == datos.endpoint
+    ).first()
+    if existente:
+        existente.cliente_id = cliente.id
+        existente.p256dh = datos.p256dh
+        existente.auth = datos.auth
+    else:
+        db.add(models.Suscripcion(
+            cliente_id=cliente.id,
+            endpoint=datos.endpoint,
+            p256dh=datos.p256dh,
+            auth=datos.auth,
+        ))
+    db.commit()
+    return {"mensaje": "Suscripción guardada"}
 
 # --- Consultar progreso (lo ve la clienta) ---
 @app.get("/clientes/{codigo_qr}/progreso")
