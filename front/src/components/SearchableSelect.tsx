@@ -11,14 +11,30 @@ interface SearchableSelectProps {
 
 export function SearchableSelect({ opciones, valor, onChange, placeholder }: SearchableSelectProps) {
   const [abierto, setAbierto] = useState(false)
-  const [posicion, setPosicion] = useState({ top: 0, left: 0, width: 0 })
+  const [posicion, setPosicion] = useState<{
+    left: number
+    width: number
+    maxHeight: number
+    top?: number
+    bottom?: number
+  }>({ left: 0, width: 0, maxHeight: 220 })
   const inputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
   function actualizarPosicion() {
     const rect = inputRef.current?.getBoundingClientRect()
     if (!rect) return
-    setPosicion({ top: rect.bottom + 6, left: rect.left, width: rect.width })
+    const margen = 10
+    const espacioAbajo = window.innerHeight - rect.bottom - margen
+    const espacioArriba = rect.top - margen
+    const abreAbajo = espacioAbajo >= 160 || espacioAbajo >= espacioArriba
+
+    setPosicion({
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(120, Math.min(220, abreAbajo ? espacioAbajo : espacioArriba)),
+      ...(abreAbajo ? { top: rect.bottom + 6 } : { bottom: window.innerHeight - rect.top + 6 }),
+    })
   }
 
   useEffect(() => {
@@ -74,7 +90,13 @@ export function SearchableSelect({ opciones, valor, onChange, placeholder }: Sea
           <div
             className="searchable-select-menu"
             ref={menuRef}
-            style={{ top: posicion.top, left: posicion.left, width: posicion.width }}
+            style={{
+              top: posicion.top,
+              bottom: posicion.bottom,
+              left: posicion.left,
+              width: posicion.width,
+              maxHeight: posicion.maxHeight,
+            }}
           >
             {categorias.map((categoria) => (
               <div key={categoria}>
