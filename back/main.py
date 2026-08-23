@@ -180,7 +180,7 @@ def sumar_sello(codigo_qr: str, servicio: str, db: Session = Depends(get_db)):
         if sellos_activos == premio["sellos_requeridos"]:
             notificar_cliente(
                 db, cliente.id,
-                titulo="¡Ya podés reclamar tu premio! 🎉",
+                titulo="¡Ya puedes reclamar tu premio! 🎉",
                 cuerpo=premio["descripcion"],
                 url=f"/c/{codigo_qr}",
             )

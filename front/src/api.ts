@@ -37,6 +37,22 @@ export interface ClienteProgreso {
 
 class ApiError extends Error {}
 
+// El backend gratuito (Render) se "duerme" tras un rato sin uso, y la
+// primera petición después de eso puede fallar por completo en vez de
+// simplemente tardar. Reintentamos un par de veces con espera antes de
+// darnos por vencidos, para no depender de que la persona recargue a mano.
+async function fetchConReintento(url: string, options?: RequestInit, intentos = 3): Promise<Response> {
+  for (let intento = 1; intento <= intentos; intento++) {
+    try {
+      return await fetch(url, options)
+    } catch (err) {
+      if (intento === intentos) throw err
+      await new Promise((resolver) => setTimeout(resolver, 3000))
+    }
+  }
+  throw new Error('No se pudo conectar')
+}
+
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let detail = res.statusText
@@ -57,38 +73,38 @@ export interface ServicioCatalogo {
 }
 
 export function listarClientes(): Promise<ClienteResumen[]> {
-  return fetch(`${API_BASE_URL}/clientes`).then((res) => handle(res))
+  return fetchConReintento(`${API_BASE_URL}/clientes`).then((res) => handle(res))
 }
 
 export function listarServicios(): Promise<ServicioCatalogo[]> {
-  return fetch(`${API_BASE_URL}/servicios`).then((res) => handle(res))
+  return fetchConReintento(`${API_BASE_URL}/servicios`).then((res) => handle(res))
 }
 
 export function crearCliente(nombre: string, telefono: string): Promise<Cliente> {
   const params = new URLSearchParams({ nombre, telefono })
-  return fetch(`${API_BASE_URL}/clientes?${params}`, { method: 'POST' }).then((res) => handle(res))
+  return fetchConReintento(`${API_BASE_URL}/clientes?${params}`, { method: 'POST' }).then((res) => handle(res))
 }
 
 export function eliminarCliente(codigoQr: string): Promise<{ mensaje: string }> {
-  return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}`, {
+  return fetchConReintento(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}`, {
     method: 'DELETE',
   }).then((res) => handle(res))
 }
 
 export function obtenerProgreso(codigoQr: string): Promise<ClienteProgreso> {
-  return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/progreso`).then((res) => handle(res))
+  return fetchConReintento(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/progreso`).then((res) => handle(res))
 }
 
 export function sumarSello(codigoQr: string, servicio: string): Promise<{ mensaje: string; cliente: string }> {
   const params = new URLSearchParams()
   if (servicio) params.set('servicio', servicio)
-  return fetch(`${API_BASE_URL}/sellos/${encodeURIComponent(codigoQr)}?${params}`, {
+  return fetchConReintento(`${API_BASE_URL}/sellos/${encodeURIComponent(codigoQr)}?${params}`, {
     method: 'POST',
   }).then((res) => handle(res))
 }
 
 export function canjearPremio(codigoQr: string): Promise<{ mensaje: string; cliente: string }> {
-  return fetch(`${API_BASE_URL}/canjes/${encodeURIComponent(codigoQr)}`, {
+  return fetchConReintento(`${API_BASE_URL}/canjes/${encodeURIComponent(codigoQr)}`, {
     method: 'POST',
   }).then((res) => handle(res))
 }
@@ -98,20 +114,20 @@ export function asignarModalidad(
   modalidadPremio: ModalidadPremio,
 ): Promise<{ mensaje: string; modalidad_premio: ModalidadPremio }> {
   const params = new URLSearchParams({ modalidad_premio: modalidadPremio })
-  return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/modalidad?${params}`, {
+  return fetchConReintento(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/modalidad?${params}`, {
     method: 'PATCH',
   }).then((res) => handle(res))
 }
 
 export function obtenerClavePublicaPush(): Promise<{ clave: string }> {
-  return fetch(`${API_BASE_URL}/push/clave-publica`).then((res) => handle(res))
+  return fetchConReintento(`${API_BASE_URL}/push/clave-publica`).then((res) => handle(res))
 }
 
 export function suscribirsePush(
   codigoQr: string,
   suscripcion: { endpoint: string; p256dh: string; auth: string },
 ): Promise<{ mensaje: string }> {
-  return fetch(`${API_BASE_URL}/push/suscribirse/${encodeURIComponent(codigoQr)}`, {
+  return fetchConReintento(`${API_BASE_URL}/push/suscribirse/${encodeURIComponent(codigoQr)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(suscripcion),
