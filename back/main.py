@@ -99,6 +99,21 @@ def registrar_cliente(nombre: str, telefono: str, db: Session = Depends(get_db))
     db.refresh(nuevo_cliente)
     return nuevo_cliente
 
+# --- Eliminar cliente (lo hace el admin) ---
+@app.delete("/clientes/{codigo_qr}")
+def eliminar_cliente(codigo_qr: str, db: Session = Depends(get_db)):
+    cliente = db.query(models.Cliente).filter(models.Cliente.codigo_qr == codigo_qr).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    db.query(models.Suscripcion).filter(models.Suscripcion.cliente_id == cliente.id).delete()
+    db.query(models.Canje).filter(models.Canje.cliente_id == cliente.id).delete()
+    db.query(models.Sello).filter(models.Sello.cliente_id == cliente.id).delete()
+    db.delete(cliente)
+    db.commit()
+
+    return {"mensaje": "Cliente eliminado"}
+
 # --- Listar clientes (panel admin) ---
 @app.get("/clientes")
 def listar_clientes(db: Session = Depends(get_db)):

@@ -69,6 +69,12 @@ export function crearCliente(nombre: string, telefono: string): Promise<Cliente>
   return fetch(`${API_BASE_URL}/clientes?${params}`, { method: 'POST' }).then((res) => handle(res))
 }
 
+export function eliminarCliente(codigoQr: string): Promise<{ mensaje: string }> {
+  return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}`, {
+    method: 'DELETE',
+  }).then((res) => handle(res))
+}
+
 export function obtenerProgreso(codigoQr: string): Promise<ClienteProgreso> {
   return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/progreso`).then((res) => handle(res))
 }

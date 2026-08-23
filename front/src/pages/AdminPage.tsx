@@ -4,6 +4,7 @@ import {
   asignarModalidad,
   canjearPremio,
   crearCliente,
+  eliminarCliente,
   listarClientes,
   listarServicios,
   obtenerProgreso,
@@ -36,6 +37,7 @@ export function AdminPage() {
   const [agregando, setAgregando] = useState(false)
   const [canjeando, setCanjeando] = useState(false)
   const [asignandoModalidad, setAsignandoModalidad] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
   async function cargarClientes(seleccionar?: string) {
     try {
@@ -142,6 +144,27 @@ export function AdminPage() {
     }
   }
 
+  async function handleEliminarCliente() {
+    if (!activoProgreso || !activoCodigo) return
+    const confirmado = window.confirm(
+      `¿Eliminar a ${activoProgreso.nombre}? Esto borra su tarjeta, historial y premios de forma permanente.`,
+    )
+    if (!confirmado) return
+
+    setEliminando(true)
+    setError(null)
+    try {
+      await eliminarCliente(activoCodigo)
+      setActivoCodigo(null)
+      setActivoProgreso(null)
+      await cargarClientes()
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setEliminando(false)
+    }
+  }
+
   const puedeCanjear =
     activoProgreso !== null &&
     activoProgreso.sellos_requeridos !== null &&
@@ -233,13 +256,18 @@ export function AdminPage() {
                       {activoProgreso.telefono} · {activoProgreso.codigo_qr}
                     </div>
                   </div>
-                  <div className="admin-qr">
-                    <QRCodeSVG
-                      value={`${CLIENT_BASE_URL}/c/${activoProgreso.codigo_qr}`}
-                      size={72}
-                      bgColor="#ffffff"
-                      fgColor="#111111"
-                    />
+                  <div className="admin-main-header-right">
+                    <div className="admin-qr">
+                      <QRCodeSVG
+                        value={`${CLIENT_BASE_URL}/c/${activoProgreso.codigo_qr}`}
+                        size={72}
+                        bgColor="#ffffff"
+                        fgColor="#111111"
+                      />
+                    </div>
+                    <button className="btn-eliminar-cliente" onClick={handleEliminarCliente} disabled={eliminando}>
+                      {eliminando ? 'Eliminando…' : 'Eliminar clienta'}
+                    </button>
                   </div>
                 </div>
 
