@@ -1,15 +1,20 @@
 import { useEffect, useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import {
+  asignarModalidad,
   canjearPremio,
   crearCliente,
   listarClientes,
+  listarServicios,
   obtenerProgreso,
   sumarSello,
   type ClienteProgreso,
   type ClienteResumen,
+  type ModalidadPremio,
+  type ServicioCatalogo,
 } from '../api'
 import { NovaCard } from '../components/NovaCard'
+import { SearchableSelect } from '../components/SearchableSelect'
 
 const CLIENT_BASE_URL = import.meta.env.VITE_CLIENT_BASE_URL ?? window.location.origin
 
@@ -20,6 +25,7 @@ export function AdminPage() {
   const [activoProgreso, setActivoProgreso] = useState<ClienteProgreso | null>(null)
 
   const [servicio, setServicio] = useState('')
+  const [catalogoServicios, setCatalogoServicios] = useState<ServicioCatalogo[]>([])
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoTel, setNuevoTel] = useState('')
@@ -29,6 +35,7 @@ export function AdminPage() {
   const [creando, setCreando] = useState(false)
   const [agregando, setAgregando] = useState(false)
   const [canjeando, setCanjeando] = useState(false)
+  const [asignandoModalidad, setAsignandoModalidad] = useState(false)
 
   async function cargarClientes(seleccionar?: string) {
     try {
@@ -47,6 +54,9 @@ export function AdminPage() {
         setClientes(lista)
         setActivoCodigo(lista[0]?.codigo_qr ?? null)
       })
+      .catch((err: Error) => setError(err.message))
+    listarServicios()
+      .then(setCatalogoServicios)
       .catch((err: Error) => setError(err.message))
   }, [])
 
@@ -116,10 +126,28 @@ export function AdminPage() {
     }
   }
 
+  async function handleCambiarModalidad(modalidad: ModalidadPremio) {
+    if (!activoCodigo) return
+    setAsignandoModalidad(true)
+    setError(null)
+    try {
+      await asignarModalidad(activoCodigo, modalidad)
+      const progreso = await obtenerProgreso(activoCodigo)
+      setActivoProgreso(progreso)
+      await cargarClientes(activoCodigo)
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setAsignandoModalidad(false)
+    }
+  }
+
   const puedeCanjear =
     activoProgreso !== null &&
     activoProgreso.sellos_requeridos !== null &&
     activoProgreso.sellos_actuales >= activoProgreso.sellos_requeridos
+
+  const servicioValido = catalogoServicios.some((s) => s.nombre === servicio)
 
   return (
     <div className="admin-page">
@@ -219,14 +247,34 @@ export function AdminPage() {
                   <NovaCard progreso={activoProgreso} />
                 </div>
 
+                <div className="admin-modalidad">
+                  <label htmlFor="modalidad-premio">Modalidad de premio</label>
+                  <select
+                    id="modalidad-premio"
+                    value={activoProgreso.modalidad_premio ?? ''}
+                    disabled={asignandoModalidad}
+                    onChange={(e) => handleCambiarModalidad(e.target.value as ModalidadPremio)}
+                  >
+                    <option value="" disabled>
+                      Sin asignar
+                    </option>
+                    <option value="2x50">2 sellos · 50% dto. en una depilación</option>
+                    <option value="4xgratis">4 sellos · una depilación gratis</option>
+                  </select>
+                </div>
+
                 <div className="admin-controls">
-                  <input
-                    className="admin-input"
-                    value={servicio}
-                    onChange={(e) => setServicio(e.target.value)}
-                    placeholder="Tipo de servicio (opcional)"
+                  <SearchableSelect
+                    opciones={catalogoServicios}
+                    valor={servicio}
+                    onChange={setServicio}
+                    placeholder="Tipo de servicio"
                   />
-                  <button className="btn-add-sello" onClick={handleAgregarSello} disabled={agregando}>
+                  <button
+                    className="btn-add-sello"
+                    onClick={handleAgregarSello}
+                    disabled={agregando || !servicioValido}
+                  >
                     {agregando ? 'Agregando…' : 'Agregar sello'}
                   </button>
                 </div>

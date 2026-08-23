@@ -4,7 +4,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 import secrets
 
 from database import get_db, engine, Base
@@ -13,7 +13,57 @@ from push import notificar_cliente
 
 VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
 
+# Las dos modalidades de premio que puede tener asignada una clienta.
+# Son fijas (definidas por el negocio), por eso van hardcodeadas acá en vez
+# de vivir en una tabla editable desde el admin.
+MODALIDADES_PREMIO = {
+    "2x50": {"sellos_requeridos": 2, "descripcion": "50% de descuento en cualquier depilación"},
+    "4xgratis": {"sellos_requeridos": 4, "descripcion": "Una depilación completamente gratis"},
+}
+
+def premio_de(cliente: models.Cliente):
+    return MODALIDADES_PREMIO.get(cliente.modalidad_premio)
+
+# Catálogo fijo de servicios que ofrece el studio. Se siembra en la tabla
+# "servicios" al arrancar (si ya existen, ON CONFLICT los ignora), y el admin
+# solo puede sumar sellos con un servicio que ya exista ahí.
+CATALOGO_SERVICIOS = [
+    ("Depilación", "Depilación con cera o hilo de cejas"),
+    ("Depilación", "Bozo"),
+    ("Depilación", "Mentón"),
+    ("Depilación", "Barbilla"),
+    ("Depilación", "Nariz"),
+    ("Depilación", "Oído"),
+    ("Depilación", "Rostro completo"),
+    ("Cejas", "Pigmento semi permanente"),
+    ("Cejas", "Pigmento larga duración"),
+    ("Cejas", "Henna"),
+    ("Cejas", "Laminado"),
+    ("Cejas", "Micropigmentación"),
+    ("Pestañas", "Lifting"),
+    ("Pestañas", "Por punto"),
+    ("Pestañas", "Extensiones pelo a pelo"),
+    ("Cursos", "Maquillaje"),
+    ("Cursos", "Depilación con cera y hilo"),
+    ("Cursos", "Laminado de cejas"),
+    ("Cursos", "Micropigmentación"),
+    ("Cursos", "Pestañas por punto efecto anime"),
+    ("Cursos", "Pestaña lifting, pelo a pelo"),
+]
+
 Base.metadata.create_all(bind=engine)  # crea tablas si no existen (no rompe las que ya están)
+
+# create_all no agrega columnas nuevas a tablas que ya existen en producción,
+# así que las columnas agregadas después de la primera versión se crean acá
+# a mano (si ya existen, el IF NOT EXISTS hace que no pase nada).
+with engine.begin() as conn:
+    conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modalidad_premio VARCHAR(20)"))
+    conn.execute(text("ALTER TABLE canjes ADD COLUMN IF NOT EXISTS modalidad_premio VARCHAR(20)"))
+    for categoria, nombre in CATALOGO_SERVICIOS:
+        conn.execute(
+            text("INSERT INTO servicios (categoria, nombre) VALUES (:categoria, :nombre) ON CONFLICT (nombre) DO NOTHING"),
+            {"categoria": categoria, "nombre": nombre},
+        )
 
 app = FastAPI()
 
@@ -52,11 +102,11 @@ def registrar_cliente(nombre: str, telefono: str, db: Session = Depends(get_db))
 # --- Listar clientes (panel admin) ---
 @app.get("/clientes")
 def listar_clientes(db: Session = Depends(get_db)):
-    premio = db.query(models.Premio).filter(models.Premio.activo == True).first()
     clientes = db.query(models.Cliente).order_by(models.Cliente.fecha_registro.desc()).all()
 
     resultado = []
     for cliente in clientes:
+        premio = premio_de(cliente)
         sellos_activos = db.query(models.Sello).filter(
             models.Sello.cliente_id == cliente.id,
             models.Sello.canjeado == False
@@ -66,32 +116,57 @@ def listar_clientes(db: Session = Depends(get_db)):
             "telefono": cliente.telefono,
             "codigo_qr": cliente.codigo_qr,
             "sellos_actuales": sellos_activos,
-            "sellos_requeridos": premio.sellos_requeridos if premio else None,
+            "sellos_requeridos": premio["sellos_requeridos"] if premio else None,
+            "modalidad_premio": cliente.modalidad_premio,
         })
     return resultado
 
-# --- Sumar sello (lo hace el admin) ---
-@app.post("/sellos/{codigo_qr}")
-def sumar_sello(codigo_qr: str, servicio: str = "", db: Session = Depends(get_db)):
+# --- Asignar/cambiar la modalidad de premio de una clienta (lo hace el admin) ---
+@app.patch("/clientes/{codigo_qr}/modalidad")
+def asignar_modalidad(codigo_qr: str, modalidad_premio: str, db: Session = Depends(get_db)):
+    if modalidad_premio not in MODALIDADES_PREMIO:
+        raise HTTPException(status_code=400, detail="Modalidad de premio inválida")
+
     cliente = db.query(models.Cliente).filter(models.Cliente.codigo_qr == codigo_qr).first()
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    cliente.modalidad_premio = modalidad_premio
+    db.commit()
+    return {"mensaje": "Modalidad de premio asignada", "modalidad_premio": modalidad_premio}
+
+# --- Listar catálogo de servicios ---
+@app.get("/servicios")
+def listar_servicios(db: Session = Depends(get_db)):
+    servicios = db.query(models.Servicio).order_by(models.Servicio.id).all()
+    return [{"categoria": s.categoria, "nombre": s.nombre} for s in servicios]
+
+# --- Sumar sello (lo hace el admin) ---
+@app.post("/sellos/{codigo_qr}")
+def sumar_sello(codigo_qr: str, servicio: str, db: Session = Depends(get_db)):
+    cliente = db.query(models.Cliente).filter(models.Cliente.codigo_qr == codigo_qr).first()
+    if not cliente:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+
+    existe = db.query(models.Servicio).filter(models.Servicio.nombre == servicio).first()
+    if not existe:
+        raise HTTPException(status_code=400, detail="Elegí un servicio válido del catálogo")
 
     nuevo_sello = models.Sello(cliente_id=cliente.id, servicio=servicio)
     db.add(nuevo_sello)
     db.commit()
 
-    premio = db.query(models.Premio).filter(models.Premio.activo == True).first()
+    premio = premio_de(cliente)
     if premio:
         sellos_activos = db.query(models.Sello).filter(
             models.Sello.cliente_id == cliente.id,
             models.Sello.canjeado == False
         ).count()
-        if sellos_activos == premio.sellos_requeridos:
+        if sellos_activos == premio["sellos_requeridos"]:
             notificar_cliente(
                 db, cliente.id,
                 titulo="¡Ya podés reclamar tu premio! 🎉",
-                cuerpo=premio.descripcion,
+                cuerpo=premio["descripcion"],
                 url=f"/c/{codigo_qr}",
             )
 
@@ -143,7 +218,7 @@ def ver_progreso(codigo_qr: str, db: Session = Depends(get_db)):
         models.Sello.canjeado == False
     ).count()
 
-    premio = db.query(models.Premio).filter(models.Premio.activo == True).first()
+    premio = premio_de(cliente)
 
     historial = db.query(models.Sello).filter(
         models.Sello.cliente_id == cliente.id
@@ -154,8 +229,9 @@ def ver_progreso(codigo_qr: str, db: Session = Depends(get_db)):
         "telefono": cliente.telefono,
         "codigo_qr": cliente.codigo_qr,
         "sellos_actuales": sellos_activos,
-        "sellos_requeridos": premio.sellos_requeridos if premio else None,
-        "premio": premio.descripcion if premio else "Sin premio configurado",
+        "sellos_requeridos": premio["sellos_requeridos"] if premio else None,
+        "premio": premio["descripcion"] if premio else "Sin modalidad de premio asignada",
+        "modalidad_premio": cliente.modalidad_premio,
         "historial": [
             {
                 "servicio": sello.servicio or "Servicio",
@@ -172,21 +248,21 @@ def canjear_premio(codigo_qr: str, db: Session = Depends(get_db)):
     if not cliente:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
 
-    premio = db.query(models.Premio).filter(models.Premio.activo == True).first()
+    premio = premio_de(cliente)
     if not premio:
-        raise HTTPException(status_code=400, detail="No hay premio configurado")
+        raise HTTPException(status_code=400, detail="Esta clienta no tiene una modalidad de premio asignada")
 
     sellos_activos = db.query(models.Sello).filter(
         models.Sello.cliente_id == cliente.id,
         models.Sello.canjeado == False
     ).all()
-    if len(sellos_activos) < premio.sellos_requeridos:
+    if len(sellos_activos) < premio["sellos_requeridos"]:
         raise HTTPException(status_code=400, detail="Aún no completa los sellos requeridos")
 
     for sello in sellos_activos:
         sello.canjeado = True
 
-    nuevo_canje = models.Canje(cliente_id=cliente.id, premio_id=premio.id)
+    nuevo_canje = models.Canje(cliente_id=cliente.id, modalidad_premio=cliente.modalidad_premio)
     db.add(nuevo_canje)
     db.commit()
 

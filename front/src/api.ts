@@ -8,12 +8,15 @@ export interface Cliente {
   fecha_registro: string
 }
 
+export type ModalidadPremio = '2x50' | '4xgratis'
+
 export interface ClienteResumen {
   nombre: string
   telefono: string
   codigo_qr: string
   sellos_actuales: number
   sellos_requeridos: number | null
+  modalidad_premio: ModalidadPremio | null
 }
 
 export interface HistorialItem {
@@ -28,6 +31,7 @@ export interface ClienteProgreso {
   sellos_actuales: number
   sellos_requeridos: number | null
   premio: string
+  modalidad_premio: ModalidadPremio | null
   historial: HistorialItem[]
 }
 
@@ -47,8 +51,17 @@ async function handle<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>
 }
 
+export interface ServicioCatalogo {
+  categoria: string
+  nombre: string
+}
+
 export function listarClientes(): Promise<ClienteResumen[]> {
   return fetch(`${API_BASE_URL}/clientes`).then((res) => handle(res))
+}
+
+export function listarServicios(): Promise<ServicioCatalogo[]> {
+  return fetch(`${API_BASE_URL}/servicios`).then((res) => handle(res))
 }
 
 export function crearCliente(nombre: string, telefono: string): Promise<Cliente> {
@@ -71,6 +84,16 @@ export function sumarSello(codigoQr: string, servicio: string): Promise<{ mensaj
 export function canjearPremio(codigoQr: string): Promise<{ mensaje: string; cliente: string }> {
   return fetch(`${API_BASE_URL}/canjes/${encodeURIComponent(codigoQr)}`, {
     method: 'POST',
+  }).then((res) => handle(res))
+}
+
+export function asignarModalidad(
+  codigoQr: string,
+  modalidadPremio: ModalidadPremio,
+): Promise<{ mensaje: string; modalidad_premio: ModalidadPremio }> {
+  const params = new URLSearchParams({ modalidad_premio: modalidadPremio })
+  return fetch(`${API_BASE_URL}/clientes/${encodeURIComponent(codigoQr)}/modalidad?${params}`, {
+    method: 'PATCH',
   }).then((res) => handle(res))
 }
 

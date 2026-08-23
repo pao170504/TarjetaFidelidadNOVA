@@ -11,13 +11,13 @@ class Cliente(Base):
     telefono = Column(String(20), unique=True, nullable=False)
     codigo_qr = Column(String(50), unique=True, nullable=False)
     fecha_registro = Column(DateTime, server_default=func.now())
+    modalidad_premio = Column(String(20), nullable=True)  # "2x50" | "4xgratis" | None
 
-class Premio(Base):
-    __tablename__ = "premios"
+class Servicio(Base):
+    __tablename__ = "servicios"
     id = Column(Integer, primary_key=True)
-    descripcion = Column(String(150), nullable=False)
-    sellos_requeridos = Column(Integer, nullable=False)
-    activo = Column(Boolean, default=True)
+    categoria = Column(String(50), nullable=False)
+    nombre = Column(String(100), unique=True, nullable=False)
 
 class Sello(Base):
     __tablename__ = "sellos"
@@ -31,7 +31,7 @@ class Canje(Base):
     __tablename__ = "canjes"
     id = Column(Integer, primary_key=True)
     cliente_id = Column(UUID(as_uuid=True), ForeignKey("clientes.id"))
-    premio_id = Column(Integer, ForeignKey("premios.id"))
+    modalidad_premio = Column(String(20))
     fecha = Column(DateTime, server_default=func.now())
 
 class Suscripcion(Base):
