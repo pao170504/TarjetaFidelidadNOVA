@@ -5,6 +5,7 @@ import { NovaCard } from '../components/NovaCard'
 import { NovaHistory } from '../components/NovaHistory'
 import { activarNotificaciones, pushSoportado } from '../push'
 import { personalizarManifestParaCliente } from '../manifest'
+import { recordarCodigoCliente } from '../clienteStorage'
 
 export function ClientCardPage() {
   const { codigoQr } = useParams<{ codigoQr: string }>()
@@ -33,7 +34,9 @@ export function ClientCardPage() {
   }, [])
 
   useEffect(() => {
-    if (codigoQr) personalizarManifestParaCliente(codigoQr)
+    if (!codigoQr) return
+    personalizarManifestParaCliente(codigoQr)
+    recordarCodigoCliente(codigoQr)
   }, [codigoQr])
 
   async function handleActivarAvisos() {
