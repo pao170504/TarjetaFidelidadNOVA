@@ -79,7 +79,7 @@ export function ClientCardPage() {
             onClick={handleActivarAvisos}
             disabled={estadoAviso === 'activando'}
           >
-            {estadoAviso === 'activando' ? 'Activando…' : 'Avisame cuando pueda reclamar mi premio'}
+            {estadoAviso === 'activando' ? 'Activando…' : 'Avísame cuando pueda reclamar mi premio'}
           </button>
         )}
         {estadoAviso === 'activo' && (
@@ -87,7 +87,7 @@ export function ClientCardPage() {
         )}
         {estadoAviso === 'error' && (
           <div className="admin-error" style={{ textAlign: 'center' }}>
-            No pudimos activar los avisos. Revisá los permisos de notificaciones del navegador.
+            No pudimos activar los avisos. Revisa los permisos de notificaciones del navegador.
           </div>
         )}
 

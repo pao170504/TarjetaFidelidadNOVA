@@ -10,7 +10,7 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let data = { titulo: 'Nova Studio', cuerpo: 'Tenés novedades en tu tarjeta', url: '/' }
+  let data = { titulo: 'Nova Studio', cuerpo: 'Tienes novedades en tu tarjeta', url: '/' }
   try {
     if (event.data) data = { ...data, ...event.data.json() }
   } catch {

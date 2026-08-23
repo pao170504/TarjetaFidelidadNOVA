@@ -34,7 +34,7 @@ export function NovaCard({ progreso }: NovaCardProps) {
           {sellos_requeridos === null ? (
             <>
               <div className="nova-progress-title">{sellos_actuales} sellos acumulados</div>
-              <div className="nova-progress-sub">Aún no tenés una modalidad de premio asignada</div>
+              <div className="nova-progress-sub">Aún no tienes una modalidad de premio asignada</div>
             </>
           ) : completa ? (
             <>
