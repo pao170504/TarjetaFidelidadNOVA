@@ -14,7 +14,7 @@ export default function handler(req, res) {
     id: `/c/${codigo}`,
     display: 'standalone',
     lang: 'es',
-    background_color: '#ede6ff',
+    background_color: '#c9a227',
     theme_color: '#863bff',
     icons: [
       { src: `${origin}/pwa-192.png`, sizes: '192x192', type: 'image/png' },
