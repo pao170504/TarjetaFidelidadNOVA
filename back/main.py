@@ -239,6 +239,17 @@ def ver_progreso(codigo_qr: str, db: Session = Depends(get_db)):
         models.Sello.cliente_id == cliente.id
     ).order_by(models.Sello.fecha.desc()).all()
 
+    categoria_por_servicio = {s.nombre: s.categoria for s in db.query(models.Servicio).all()}
+
+    def etiqueta_servicio(nombre: str) -> str:
+        nombre = nombre or "Servicio"
+        # "Bozo", "Mentón", etc. son partes del cuerpo, no se entienden solas
+        # en el historial - las de la categoría Depilación se muestran como
+        # "Depilación de Bozo" salvo que ya digan "Depilación" (como la de cejas).
+        if categoria_por_servicio.get(nombre) == "Depilación" and not nombre.startswith("Depilación"):
+            return f"Depilación de {nombre}"
+        return nombre
+
     return {
         "nombre": cliente.nombre,
         "telefono": cliente.telefono,
@@ -249,7 +260,7 @@ def ver_progreso(codigo_qr: str, db: Session = Depends(get_db)):
         "modalidad_premio": cliente.modalidad_premio,
         "historial": [
             {
-                "servicio": sello.servicio or "Servicio",
+                "servicio": etiqueta_servicio(sello.servicio),
                 "fecha": sello.fecha.strftime("%d %b") if sello.fecha else ""
             }
             for sello in historial

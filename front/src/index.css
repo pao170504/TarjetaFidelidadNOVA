@@ -10,6 +10,53 @@
   --nova-gold-light: #e6c76a;
   --nova-gold-soft: #8a7a45;
   --nova-card-bg: #0b0b0c;
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes nova-revelar {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes nova-stamp-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.14);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes nova-brillo {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 * {
@@ -109,6 +156,7 @@ input {
 
 .nova-card--complete .nova-card-glow {
   background: radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%);
+  animation: nova-brillo 3s ease-in-out infinite;
 }
 
 .nova-card-inner {
@@ -170,6 +218,7 @@ input {
   flex-shrink: 0;
   background: linear-gradient(150deg, #f5d67b, var(--nova-gold));
   box-shadow: 0 4px 12px -4px rgba(212, 175, 55, 0.7);
+  animation: nova-stamp-pop 0.5s var(--ease-apple) both;
 }
 
 .nova-stamp--empty {
@@ -258,6 +307,30 @@ input {
   display: flex;
   flex-direction: column;
   gap: 34px;
+}
+
+.client-page-inner > * {
+  animation: nova-revelar 0.7s var(--ease-apple) both;
+}
+
+.client-page-inner > *:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.client-page-inner > *:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.client-page-inner > *:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.client-page-inner > *:nth-child(4) {
+  animation-delay: 0.24s;
+}
+
+.client-page-inner > *:nth-child(5) {
+  animation-delay: 0.32s;
 }
 
 .client-notify-btn {
@@ -352,6 +425,23 @@ input {
   border-radius: 50%;
   background: linear-gradient(150deg, #f5d67b, var(--nova-gold));
   flex-shrink: 0;
+}
+
+.btn-dark,
+.btn-gold,
+.btn-add-sello,
+.btn-canjear {
+  transition:
+    transform 0.15s var(--ease-apple),
+    background 0.2s var(--ease-apple),
+    opacity 0.2s var(--ease-apple);
+}
+
+.btn-dark:active:not(:disabled),
+.btn-gold:active:not(:disabled),
+.btn-add-sello:active:not(:disabled),
+.btn-canjear:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn-dark {

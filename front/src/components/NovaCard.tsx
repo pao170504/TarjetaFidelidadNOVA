@@ -26,7 +26,11 @@ export function NovaCard({ progreso }: NovaCardProps) {
 
         <div className="nova-stamps">
           {circulos.map((llena, i) => (
-            <span key={i} className={`nova-stamp${llena ? '' : ' nova-stamp--empty'}`} />
+            <span
+              key={i}
+              className={`nova-stamp${llena ? '' : ' nova-stamp--empty'}`}
+              style={{ animationDelay: `${0.45 + i * 0.06}s` }}
+            />
           ))}
         </div>
 

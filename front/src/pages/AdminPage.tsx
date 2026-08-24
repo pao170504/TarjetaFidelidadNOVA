@@ -260,7 +260,7 @@ export function AdminPage() {
                     <div className="admin-qr">
                       <QRCodeSVG
                         value={`${CLIENT_BASE_URL}/c/${activoProgreso.codigo_qr}`}
-                        size={72}
+                        size={108}
                         bgColor="#ffffff"
                         fgColor="#111111"
                       />
