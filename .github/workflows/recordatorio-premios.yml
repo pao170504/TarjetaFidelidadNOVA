@@ -1,0 +1,14 @@
+name: Recordatorio de premios pendientes
+
+on:
+  schedule:
+    # 17:00 UTC = 1:00 p.m. hora de Venezuela (UTC-4), cada 2 días
+    - cron: "0 17 */2 * *"
+  workflow_dispatch:
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avisar a las clientas con premio pendiente
+        run: curl -sf -X POST https://tarjetafidelidad-backend.onrender.com/recordatorios/premios-pendientes

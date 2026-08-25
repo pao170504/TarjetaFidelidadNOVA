@@ -114,6 +114,34 @@ def eliminar_cliente(codigo_qr: str, db: Session = Depends(get_db)):
 
     return {"mensaje": "Cliente eliminado"}
 
+# --- Recordar a las clientas con premio pendiente que aún no canjearon ---
+# Lo llama un workflow programado (GitHub Actions) cada 2 días, no lo usa el front.
+@app.post("/recordatorios/premios-pendientes")
+def recordar_premios_pendientes(db: Session = Depends(get_db)):
+    clientes = db.query(models.Cliente).all()
+    avisadas = 0
+
+    for cliente in clientes:
+        premio = premio_de(cliente)
+        if not premio:
+            continue
+
+        sellos_activos = db.query(models.Sello).filter(
+            models.Sello.cliente_id == cliente.id,
+            models.Sello.canjeado == False
+        ).count()
+
+        if sellos_activos >= premio["sellos_requeridos"]:
+            notificar_cliente(
+                db, cliente.id,
+                titulo="¡Ya puedes reclamar tu premio! 🎉",
+                cuerpo=premio["descripcion"],
+                url=f"/c/{cliente.codigo_qr}",
+            )
+            avisadas += 1
+
+    return {"mensaje": f"Recordatorio enviado a {avisadas} clienta(s)"}
+
 # --- Listar clientes (panel admin) ---
 @app.get("/clientes")
 def listar_clientes(db: Session = Depends(get_db)):
