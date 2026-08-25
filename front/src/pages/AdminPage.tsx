@@ -30,6 +30,7 @@ export function AdminPage() {
   const [nuevoAbierto, setNuevoAbierto] = useState(false)
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevoTel, setNuevoTel] = useState('')
+  const [nuevoNacimiento, setNuevoNacimiento] = useState('')
 
   const [error, setError] = useState<string | null>(null)
   const [errorNuevo, setErrorNuevo] = useState<string | null>(null)
@@ -80,12 +81,17 @@ export function AdminPage() {
       setErrorNuevo('El nombre es obligatorio')
       return
     }
+    if (!nuevoNacimiento) {
+      setErrorNuevo('La fecha de nacimiento es obligatoria')
+      return
+    }
     setCreando(true)
     setErrorNuevo(null)
     try {
-      const cliente = await crearCliente(nuevoNombre.trim(), nuevoTel.trim())
+      const cliente = await crearCliente(nuevoNombre.trim(), nuevoTel.trim(), nuevoNacimiento)
       setNuevoNombre('')
       setNuevoTel('')
+      setNuevoNacimiento('')
       setNuevoAbierto(false)
       await cargarClientes(cliente.codigo_qr)
     } catch (err) {
@@ -215,6 +221,15 @@ export function AdminPage() {
                   value={nuevoTel}
                   onChange={(e) => setNuevoTel(e.target.value)}
                   placeholder="Teléfono"
+                />
+                <label className="admin-new-client-label" htmlFor="nuevo-nacimiento">
+                  FECHA DE NACIMIENTO
+                </label>
+                <input
+                  id="nuevo-nacimiento"
+                  type="date"
+                  value={nuevoNacimiento}
+                  onChange={(e) => setNuevoNacimiento(e.target.value)}
                 />
                 {errorNuevo && <div className="admin-error">{errorNuevo}</div>}
                 <button className="btn-gold" onClick={handleCrearCliente} disabled={creando}>

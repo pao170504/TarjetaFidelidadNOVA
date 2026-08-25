@@ -1,10 +1,11 @@
 import os
+from datetime import date
 
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
+from sqlalchemy import func, text, extract
 import secrets
 
 from database import get_db, engine, Base
@@ -58,6 +59,7 @@ Base.metadata.create_all(bind=engine)  # crea tablas si no existen (no rompe las
 # a mano (si ya existen, el IF NOT EXISTS hace que no pase nada).
 with engine.begin() as conn:
     conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS modalidad_premio VARCHAR(20)"))
+    conn.execute(text("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS fecha_nacimiento DATE"))
     conn.execute(text("ALTER TABLE canjes ADD COLUMN IF NOT EXISTS modalidad_premio VARCHAR(20)"))
     for categoria, nombre in CATALOGO_SERVICIOS:
         conn.execute(
@@ -87,13 +89,15 @@ app.add_middleware(
 
 # --- Registrar cliente ---
 @app.post("/clientes")
-def registrar_cliente(nombre: str, telefono: str, db: Session = Depends(get_db)):
+def registrar_cliente(nombre: str, telefono: str, fecha_nacimiento: date, db: Session = Depends(get_db)):
     existente = db.query(models.Cliente).filter(models.Cliente.telefono == telefono).first()
     if existente:
         raise HTTPException(status_code=400, detail="Ese teléfono ya está registrado")
 
     codigo_qr = secrets.token_urlsafe(8)  # código único random para el link/QR
-    nuevo_cliente = models.Cliente(nombre=nombre, telefono=telefono, codigo_qr=codigo_qr)
+    nuevo_cliente = models.Cliente(
+        nombre=nombre, telefono=telefono, codigo_qr=codigo_qr, fecha_nacimiento=fecha_nacimiento
+    )
     db.add(nuevo_cliente)
     db.commit()
     db.refresh(nuevo_cliente)
@@ -141,6 +145,27 @@ def recordar_premios_pendientes(db: Session = Depends(get_db)):
             avisadas += 1
 
     return {"mensaje": f"Recordatorio enviado a {avisadas} clienta(s)"}
+
+# --- Avisar a las clientas que cumplen años hoy ---
+# También la llama un workflow programado (GitHub Actions), todos los días.
+@app.post("/recordatorios/cumpleanos")
+def recordar_cumpleanos(db: Session = Depends(get_db)):
+    hoy = date.today()
+    clientes = db.query(models.Cliente).filter(
+        models.Cliente.fecha_nacimiento.isnot(None),
+        extract("month", models.Cliente.fecha_nacimiento) == hoy.month,
+        extract("day", models.Cliente.fecha_nacimiento) == hoy.day,
+    ).all()
+
+    for cliente in clientes:
+        notificar_cliente(
+            db, cliente.id,
+            titulo="¡Feliz cumpleaños de parte de Nova Studio! 🎂",
+            cuerpo="Por tu cumpleaños tienes 50% de descuento en un servicio.",
+            url=f"/c/{cliente.codigo_qr}",
+        )
+
+    return {"mensaje": f"Recordatorio de cumpleaños enviado a {len(clientes)} clienta(s)"}
 
 # --- Listar clientes (panel admin) ---
 @app.get("/clientes")

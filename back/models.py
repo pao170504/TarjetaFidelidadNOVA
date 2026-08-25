@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Date, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -12,6 +12,7 @@ class Cliente(Base):
     codigo_qr = Column(String(50), unique=True, nullable=False)
     fecha_registro = Column(DateTime, server_default=func.now())
     modalidad_premio = Column(String(20), nullable=True)  # "2x50" | "4xgratis" | None
+    fecha_nacimiento = Column(Date, nullable=True)
 
 class Servicio(Base):
     __tablename__ = "servicios"

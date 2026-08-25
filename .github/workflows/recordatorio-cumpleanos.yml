@@ -1,0 +1,14 @@
+name: Recordatorio de cumpleaños
+
+on:
+  schedule:
+    # 15:00 UTC = 11:00 a.m. hora de Venezuela (UTC-4), todos los días
+    - cron: "0 15 * * *"
+  workflow_dispatch:
+
+jobs:
+  avisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Avisar a las clientas que cumplen años hoy
+        run: curl -sf -X POST https://tarjetafidelidad-backend.onrender.com/recordatorios/cumpleanos

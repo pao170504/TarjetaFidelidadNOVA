@@ -80,8 +80,8 @@ export function listarServicios(): Promise<ServicioCatalogo[]> {
   return fetchConReintento(`${API_BASE_URL}/servicios`).then((res) => handle(res))
 }
 
-export function crearCliente(nombre: string, telefono: string): Promise<Cliente> {
-  const params = new URLSearchParams({ nombre, telefono })
+export function crearCliente(nombre: string, telefono: string, fechaNacimiento: string): Promise<Cliente> {
+  const params = new URLSearchParams({ nombre, telefono, fecha_nacimiento: fechaNacimiento })
   return fetchConReintento(`${API_BASE_URL}/clientes?${params}`, { method: 'POST' }).then((res) => handle(res))
 }
 
